@@ -349,6 +349,16 @@ def _validate_clickup(creds: dict) -> ValidationResult:
     )
 
 
+def _validate_orva(creds: dict) -> ValidationResult:
+    base = str(creds.get("base_url") or "").rstrip("/")
+    return _validate_whoami(
+        "GET",
+        f"{base}/api/v1/agent/context",
+        headers={"X-Orva-Service-Key": creds.get("service_key", "")},
+        identity=lambda d: d.get("name") or d.get("service_identity_id"),
+    )
+
+
 def _validate_close(creds: dict) -> ValidationResult:
     import base64 as _b64
 
@@ -1426,6 +1436,41 @@ DESCRIPTORS: list[ConnectorDescriptor] = [
         brand_color="#fa5320",
         logo="hunter",
         account_field="@identity",
+    ),
+    ConnectorDescriptor(
+        name="orva",
+        title="ORVA ERP",
+        icon="◈",
+        blurb="Propose ERP actions (invoices, records, workflows) through ORVA Core's "
+        "Agent API — human approval kicks in automatically when a rule requires it.",
+        auth="api_token",
+        two_way=False,
+        brand_color="#1f6feb",
+        logo="orva",
+        aliases=("erp", "workflow", "approval"),
+        fields=[
+            Field(
+                "base_url",
+                "ORVA Core URL",
+                help="Example: https://erp.example.com or http://localhost:8080",
+                placeholder="https://erp.example.com",
+            ),
+            Field(
+                "service_key",
+                "Service identity key",
+                secret=True,
+                help="An ORVA org owner creates one via POST /api/v1/service-identities "
+                "and pastes the api_key shown once (it cannot be viewed again).",
+            ),
+        ],
+        instructions=[
+            "Ask an ORVA org owner to create a service identity: "
+            "POST /api/v1/service-identities with a name (e.g. 'openworker-agent').",
+            "Copy the api_key from the response — it is shown once and cannot be "
+            "retrieved again — and paste it below along with the ORVA Core URL.",
+        ],
+        validate=_validate_orva,
+        available=True,
     ),
     ConnectorDescriptor(
         name="pagerduty",

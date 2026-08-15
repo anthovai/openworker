@@ -4914,6 +4914,113 @@ def make_integration_tools(
         )
     )
 
+    def orva_get_context() -> dict[str, Any]:
+        profile, err = _profile(secrets, "orva", "base_url", "service_key")
+        if err:
+            return err
+        base = str(profile["base_url"]).rstrip("/")
+        return _request(
+            "GET",
+            f"{base}/api/v1/agent/context",
+            headers={"X-Orva-Service-Key": profile["service_key"]},
+        )
+
+    orva_get_context.__name__ = "orva_get_context"
+    tools.append(
+        _attach(
+            orva_get_context,
+            _schema(
+                "orva_get_context",
+                "Read this agent's ORVA service identity — name and organization. "
+                "Check this before proposing actions to confirm it's the right ORVA org.",
+                {},
+                [],
+            ),
+            caps=["orva", "read"],
+        )
+    )
+
+    def orva_propose_action(
+        resource_type: str,
+        resource_id: str,
+        context: Optional[dict[str, Any]] = None,
+        rule: Optional[dict[str, Any]] = None,
+        approver_id: str = "",
+    ) -> dict[str, Any]:
+        profile, err = _profile(secrets, "orva", "base_url", "service_key")
+        if err:
+            return err
+        base = str(profile["base_url"]).rstrip("/")
+        body: dict[str, Any] = {
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "context": context or {},
+        }
+        if rule:
+            body["rule"] = rule
+        if approver_id:
+            body["approver_id"] = approver_id
+        return _request(
+            "POST",
+            f"{base}/api/v1/agent/workflows",
+            headers={"X-Orva-Service-Key": profile["service_key"]},
+            json=body,
+        )
+
+    orva_propose_action.__name__ = "orva_propose_action"
+    tools.append(
+        _attach(
+            orva_propose_action,
+            _schema(
+                "orva_propose_action",
+                "Propose an ERP action in ORVA as a workflow instance. `resource_type`/"
+                "`resource_id` name what the action is about (e.g. resource_type='invoice', "
+                "resource_id a UUID you generate for it). `rule` optionally gates the action "
+                "behind human approval when a numeric field in `context` crosses a threshold, "
+                'e.g. {"field": "amount", "operator": "gt", "value": 100000} (operator one of '
+                "gt/gte/lt/lte/eq) — pass `approver_id` (an ORVA user id) whenever you include "
+                "a rule. The response's `status` tells you what to do next: 'executing' means "
+                "proceed now, 'pending_approval' means stop and poll orva_get_workflow until a "
+                "human approves it. Requires user approval.",
+                {
+                    "resource_type": {"type": "string"},
+                    "resource_id": {"type": "string"},
+                    "context": {"type": "object"},
+                    "rule": {"type": "object"},
+                    "approver_id": {"type": "string"},
+                },
+                ["resource_type", "resource_id"],
+            ),
+            approval=True,
+            caps=["orva", "write"],
+        )
+    )
+
+    def orva_get_workflow(workflow_id: str) -> dict[str, Any]:
+        profile, err = _profile(secrets, "orva", "base_url", "service_key")
+        if err:
+            return err
+        base = str(profile["base_url"]).rstrip("/")
+        return _request(
+            "GET",
+            f"{base}/api/v1/agent/workflows/{quote(workflow_id)}",
+            headers={"X-Orva-Service-Key": profile["service_key"]},
+        )
+
+    orva_get_workflow.__name__ = "orva_get_workflow"
+    tools.append(
+        _attach(
+            orva_get_workflow,
+            _schema(
+                "orva_get_workflow",
+                "Poll the status of a previously proposed ORVA action by its workflow id.",
+                {"workflow_id": {"type": "string"}},
+                ["workflow_id"],
+            ),
+            caps=["orva", "read"],
+        )
+    )
+
     if enabled_connectors is not None:
         tools = [
             t for t in tools if connector_for_tool(t.__name__) in enabled_connectors

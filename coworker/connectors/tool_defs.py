@@ -1089,6 +1089,29 @@ TOOL_DEFS: tuple[ConnectorToolDef, ...] = (
         "read",
         "Poll an export job for download URLs.",
     ),
+    ConnectorToolDef(
+        "orva",
+        "orva_get_context",
+        "Who am I",
+        "read",
+        "Read this agent's ORVA service identity and organization.",
+    ),
+    ConnectorToolDef(
+        "orva",
+        "orva_propose_action",
+        "Propose ERP action",
+        "write",
+        "Propose an ERP action as an ORVA workflow — may require human approval "
+        "before it executes.",
+        target_arg="resource_type",
+    ),
+    ConnectorToolDef(
+        "orva",
+        "orva_get_workflow",
+        "Check action status",
+        "read",
+        "Poll the status of a previously proposed ORVA action.",
+    ),
 )
 
 _KIND_BY_NAME = {d.name: d.kind for d in TOOL_DEFS}
