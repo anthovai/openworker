@@ -1112,6 +1112,27 @@ TOOL_DEFS: tuple[ConnectorToolDef, ...] = (
         "read",
         "Poll the status of a previously proposed ORVA action.",
     ),
+    ConnectorToolDef(
+        "orva",
+        "orva_poll_tasks",
+        "Check ORVA work queue",
+        "read",
+        "List work an ORVA user queued for this worker.",
+    ),
+    ConnectorToolDef(
+        "orva",
+        "orva_claim_task",
+        "Claim ORVA task",
+        "write",
+        "Take a queued ORVA task so no other worker picks it up.",
+    ),
+    ConnectorToolDef(
+        "orva",
+        "orva_report_task_result",
+        "Report ORVA task result",
+        "write",
+        "Report the outcome of a claimed ORVA task back to the person who queued it.",
+    ),
 )
 
 _KIND_BY_NAME = {d.name: d.kind for d in TOOL_DEFS}

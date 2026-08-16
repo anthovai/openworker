@@ -5021,6 +5021,109 @@ def make_integration_tools(
         )
     )
 
+    def orva_poll_tasks() -> dict[str, Any]:
+        profile, err = _profile(secrets, "orva", "base_url", "service_key")
+        if err:
+            return err
+        base = str(profile["base_url"]).rstrip("/")
+        return _request(
+            "GET",
+            f"{base}/api/v1/agent/tasks",
+            headers={"X-Orva-Service-Key": profile["service_key"]},
+        )
+
+    orva_poll_tasks.__name__ = "orva_poll_tasks"
+    tools.append(
+        _attach(
+            orva_poll_tasks,
+            _schema(
+                "orva_poll_tasks",
+                "List work that ORVA users queued for this worker, oldest first. Each task "
+                "has an `id`, an `instruction` describing what to do, and a `source` "
+                "('manual' when a person queued it directly, 'recommendation' when it came "
+                "from an ORVA recommendation a human approved). Claim a task with "
+                "orva_claim_task before starting it, then report the outcome with "
+                "orva_report_task_result.",
+                {},
+                [],
+            ),
+            caps=["orva", "read"],
+        )
+    )
+
+    def orva_claim_task(task_id: str) -> dict[str, Any]:
+        profile, err = _profile(secrets, "orva", "base_url", "service_key")
+        if err:
+            return err
+        base = str(profile["base_url"]).rstrip("/")
+        return _request(
+            "POST",
+            f"{base}/api/v1/agent/tasks/{quote(task_id)}/claim",
+            headers={"X-Orva-Service-Key": profile["service_key"]},
+        )
+
+    orva_claim_task.__name__ = "orva_claim_task"
+    tools.append(
+        _attach(
+            orva_claim_task,
+            _schema(
+                "orva_claim_task",
+                "Claim a queued ORVA task before working on it, so no other worker picks up "
+                "the same one. A 409 means another worker claimed it first — move on to the "
+                "next task in the queue instead of retrying. Requires user approval.",
+                {"task_id": {"type": "string"}},
+                ["task_id"],
+            ),
+            approval=True,
+            caps=["orva", "write"],
+        )
+    )
+
+    def orva_report_task_result(
+        task_id: str,
+        succeeded: bool,
+        result: str = "",
+        error: str = "",
+    ) -> dict[str, Any]:
+        profile, err = _profile(secrets, "orva", "base_url", "service_key")
+        if err:
+            return err
+        base = str(profile["base_url"]).rstrip("/")
+        body: dict[str, Any] = {"succeeded": succeeded}
+        if result:
+            body["result"] = result
+        if error:
+            body["error"] = error
+        return _request(
+            "POST",
+            f"{base}/api/v1/agent/tasks/{quote(task_id)}/result",
+            headers={"X-Orva-Service-Key": profile["service_key"]},
+            json=body,
+        )
+
+    orva_report_task_result.__name__ = "orva_report_task_result"
+    tools.append(
+        _attach(
+            orva_report_task_result,
+            _schema(
+                "orva_report_task_result",
+                "Report the outcome of a task you claimed. The person who queued it is "
+                "notified with what you write here, so summarize what you actually did — or, "
+                "when `succeeded` is false, put in `error` what stopped you. Report once per "
+                "task: a second report is rejected. Requires user approval.",
+                {
+                    "task_id": {"type": "string"},
+                    "succeeded": {"type": "boolean"},
+                    "result": {"type": "string"},
+                    "error": {"type": "string"},
+                },
+                ["task_id", "succeeded"],
+            ),
+            approval=True,
+            caps=["orva", "write"],
+        )
+    )
+
     if enabled_connectors is not None:
         tools = [
             t for t in tools if connector_for_tool(t.__name__) in enabled_connectors
